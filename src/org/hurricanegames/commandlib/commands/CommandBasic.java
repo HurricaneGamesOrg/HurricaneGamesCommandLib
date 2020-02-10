@@ -37,7 +37,11 @@ public abstract class CommandBasic<H extends CommandHelper<?, ?, ?>> implements 
 
 	private String createArgumentIdentififer(CommandArgumentDefinition definition) {
 		Class<?> clazz = definition.value();
-		CommandArgumentDefinition overrideDefiniton = clazz.getAnnotation(CommandArgumentDefinition.class);
+		CommandArgumentDefinition overrideDefiniton = null;
+		try {
+			overrideDefiniton = clazz.getAnnotation(CommandArgumentDefinition.class);
+		} catch (ClassCastException e) {
+		}
 		if ((overrideDefiniton != null) && (overrideDefiniton.value() != clazz)) {
 			return createArgumentIdentififer(overrideDefiniton);
 		} else {
