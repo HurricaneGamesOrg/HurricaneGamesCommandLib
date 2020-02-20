@@ -62,8 +62,6 @@ shadowJar {
 	from sourceSets.main.java.srcDirs
 
 	archiveName = jar.archiveName
-
-	minimize()
 }
 
 

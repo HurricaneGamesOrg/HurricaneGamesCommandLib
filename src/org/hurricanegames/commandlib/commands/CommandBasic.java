@@ -41,6 +41,7 @@ public abstract class CommandBasic<H extends CommandHelper<?, ?, ?>> implements 
 		try {
 			overrideDefiniton = clazz.getAnnotation(CommandArgumentDefinition.class);
 		} catch (ClassCastException e) {
+			e.printStackTrace();
 		}
 		if ((overrideDefiniton != null) && (overrideDefiniton.value() != clazz)) {
 			return createArgumentIdentififer(overrideDefiniton);
@@ -86,8 +87,8 @@ public abstract class CommandBasic<H extends CommandHelper<?, ?, ?>> implements 
 				String argumentParameterIdentifier = createArgumentIdentififer(argumentParameterDefinition);
 				if (!handleMethodArgumentsInitialized.contains(argumentParameterIdentifier)) {
 					throw new IllegalArgumentException(MessageFormat.format(
-						"Cosntructor parameter {0} uses command argument {1} which doesn''t exist",
-						argumentParameter, argumentParameterIdentifier
+						"Cosntructor parameter {0} uses command argument {1} which doesn''t exist (currenty existing arguments: {2})",
+						argumentParameter, argumentParameterIdentifier, handleMethodArgumentsInitialized
 					));
 				}
 				argumentConstructorParameterArray[argumentParameterIndex] = (Supplier<?>) () -> parsedValuesStorage.get(argumentParameterIdentifier);
