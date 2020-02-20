@@ -37,13 +37,7 @@ public abstract class CommandBasic<H extends CommandHelper<?, ?, ?>> implements 
 
 	private String createArgumentIdentififer(CommandArgumentDefinition definition) {
 		Class<?> clazz = definition.value();
-		CommandArgumentDefinition overrideDefiniton = null;
-		try {
-			overrideDefiniton = clazz.getAnnotation(CommandArgumentDefinition.class);
-		} catch (ClassCastException e) {
-			System.err.println("Error scanning definition for class " + clazz);
-			e.printStackTrace();
-		}
+		CommandArgumentDefinition overrideDefiniton = clazz.getAnnotation(CommandArgumentDefinition.class);
 		if ((overrideDefiniton != null) && (overrideDefiniton.value() != clazz)) {
 			return createArgumentIdentififer(overrideDefiniton);
 		} else {
@@ -441,7 +435,7 @@ public abstract class CommandBasic<H extends CommandHelper<?, ?, ?>> implements 
 
 
 
-	@CommandArgumentDefinition(CommandArgumentSenderRaw.class)
+	@CommandArgumentDefinition(CommandBasic.CommandArgumentSenderRaw.class)
 	protected class CommandArgumentSenderRaw extends CommandArgumentSender<CommandSender> {
 
 		@Override
@@ -451,7 +445,7 @@ public abstract class CommandBasic<H extends CommandHelper<?, ?, ?>> implements 
 
 	}
 
-	@CommandArgumentDefinition(CommandArgumentSenderPlayer.class)
+	@CommandArgumentDefinition(CommandBasic.CommandArgumentSenderPlayer.class)
 	protected class CommandArgumentSenderPlayer extends CommandArgumentSender<Player> {
 
 		@Override
