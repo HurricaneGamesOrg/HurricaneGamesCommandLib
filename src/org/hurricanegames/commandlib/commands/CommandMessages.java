@@ -58,6 +58,13 @@ public interface CommandMessages {
 	public String getArgIntegerErrorNotIntegerMessage(String string);
 
 	/**
+	 * Error message for double command argume
+	 * @param string string that can't be parsed as double
+	 * @return message
+	 */
+	public String getArgDoubleErrorNotDoubleMessage(String string);
+
+	/**
 	 * Help message for boolean command argument
 	 * @return message
 	 */

@@ -577,4 +577,27 @@ public abstract class CommandBasic<H extends CommandHelper<?, ?, ?>> implements 
 
 	}
 
+	protected abstract class CommandArgumentDouble extends CommandArgumentPositional<Double> {
+
+		@Override
+		protected Double parseValue(String arg) {
+			double value = helper.parseDouble(arg);
+			validate(value);
+			return value;
+		}
+
+		@Override
+		protected List<String> complete(String arg) {
+			return Collections.emptyList();
+		}
+
+		/**
+		 * Override to additionally validate double
+		 * @param value
+		 */
+		protected void validate(double value) {
+		}
+
+	}
+
 }

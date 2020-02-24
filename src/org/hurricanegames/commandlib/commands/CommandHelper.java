@@ -71,6 +71,20 @@ public class CommandHelper<M extends CommandMessages, P extends PlayerInfo, PP e
 	}
 
 	/**
+	 * Parses string as double (via {@link Double#parseDouble(String)})
+	 * Throws {@link CommandResponseException} on parse fail with message from {@link CommandMessages#getArgDoubleErrorNotDoubleMessage(String)}
+	 * @param value value
+	 * @return double
+	 */
+	public double parseDouble(String value) {
+		try {
+			return Double.parseDouble(value);
+		} catch (NumberFormatException e) {
+			throw new CommandResponseException(getMessages().getArgDoubleErrorNotDoubleMessage(value));
+		}
+	}
+
+	/**
 	 * Parses string as boolean<br>
 	 * Returns {@link Boolean#TRUE} if string equals {@link CommandMessages#getArgBooleanValueTrue()}<br>
 	 * Returns {@link Boolean#FALSE} if string equals {@link CommandMessages#getArgBooleanValueFalse()}
