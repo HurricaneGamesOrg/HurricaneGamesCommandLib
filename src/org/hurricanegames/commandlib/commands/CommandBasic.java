@@ -24,6 +24,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.hurricanegames.commandlib.providers.playerinfo.PlayerInfo;
+import org.hurricanegames.commandlib.utils.MiscBukkitUtils;
 import org.hurricanegames.commandlib.utils.ReflectionUtils;
 import org.hurricanegames.commandlib.utils.Tuple;
 
@@ -550,6 +551,20 @@ public abstract class CommandBasic<H extends CommandHelper<?, ?, ?>> implements 
 		 * @param player
 		 */
 		protected void validate(V player) {
+		}
+
+	}
+
+	protected abstract class CommandArgumentColorizedString extends CommandArgumentPositional<String> {
+
+		@Override
+		protected String parseValue(String arg) {
+			return MiscBukkitUtils.colorize(arg);
+		}
+
+		@Override
+		protected List<String> complete(String arg) {
+			return Collections.emptyList();
 		}
 
 	}
