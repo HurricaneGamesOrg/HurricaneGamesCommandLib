@@ -10,6 +10,7 @@ import java.util.Arrays;
 
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.hurricanegames.commandlib.utils.MiscBukkitUtils;
 import org.hurricanegames.commandlib.utils.ReflectionUtils;
 
 public class ConfigurationUtils {
@@ -47,19 +48,6 @@ public class ConfigurationUtils {
 	}
 
 	/**
-	 * Loads configuration from file
-	 * @param <T> configuration object instance type
-	 * @param configuraitonObject configuration object instance
-	 * @param file source file
-	 * @param fields configuration fields
-	 */
-	@SafeVarargs
-	public static <T> void load(T configuraitonObject, File file, BaseConfigurationField<T>... fields) {
-		YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
-		load(configuraitonObject, config, fields);
-	}
-
-	/**
 	 * Loads configuration
 	 * @param <T> configuration object instance type
 	 * @param section configuration section
@@ -72,21 +60,6 @@ public class ConfigurationUtils {
 	}
 
 	/**
-	 * Saves configuration to file
-	 * @param <T> configuration object instance type
-	 * @param configuraitonObject configuration object instance
-	 * @param file target field
-	 * @param fields configuration fields
-	 * @throws UncheckedIOException if saving or atomic move fails
-	 */
-	@SafeVarargs
-	public static <T> void save(T configuraitonObject, File file, BaseConfigurationField<T>... fields) {
-		YamlConfiguration config = new YamlConfiguration();
-		save(configuraitonObject, config, fields);
-		safeSave(config, file);
-	}
-
-	/**
 	 * Saves configuration
 	 * @param <T> configuration object instance type
 	 * @param configuraitonObject configuration object instance
@@ -96,25 +69,6 @@ public class ConfigurationUtils {
 	@SafeVarargs
 	public static <T> void save(T configuraitonObject, ConfigurationSection section, BaseConfigurationField<T>... fields) {
 		Arrays.stream(fields).forEach(field -> field.save(configuraitonObject, section));
-	}
-
-	/**
-	 * Loads and then save configuration
-	 * @param <T> configuration object instance type
-	 * @param configuraitonObject configuration object instance
-	 * @param file source and target file
-	 * @param fields configuration fields
-	 * @throws UncheckedIOException if saving or atomic move fails
-	 */
-	@SafeVarargs
-	public static <T> void loadAndSave(T configuraitonObject, File file, BaseConfigurationField<T>... fields) {
-		YamlConfiguration lconfig = YamlConfiguration.loadConfiguration(file);
-		YamlConfiguration sconfig = new YamlConfiguration();
-		Arrays.stream(fields).forEach(field -> {
-			field.load(configuraitonObject, lconfig);
-			field.save(configuraitonObject, sconfig);
-		});
-		safeSave(sconfig, file);
 	}
 
 	public abstract static class BaseConfigurationField<O> {
@@ -163,6 +117,22 @@ public class ConfigurationUtils {
 
 		protected Object serialize(T object) {
 			return object;
+		}
+
+	}
+
+	public static class SimpleColorizedStringConfiguirationField<O> extends SimpleConfigurationField<O, String> {
+
+		public SimpleColorizedStringConfiguirationField(Field field, String path) {
+			super(field, path);
+		}
+
+		@Override
+		protected String deserialize(Object object) {
+			if (object instanceof String) {
+				return MiscBukkitUtils.colorize((String) object);
+			}
+			return "";
 		}
 
 	}

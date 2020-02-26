@@ -2,16 +2,18 @@ package org.hurricanegames.commandlib.configurations;
 
 import java.io.File;
 
+import org.bukkit.configuration.file.YamlConfiguration;
+
 public abstract class SimpleConfiguration extends BaseConfiguration {
 
-	@SuppressWarnings("unchecked")
 	protected void load() {
-		ConfigurationUtils.load(this, getStorageFile(), fields);
+		load(YamlConfiguration.loadConfiguration(getStorageFile()));
 	}
 
-	@SuppressWarnings("unchecked")
 	public void save() {
-		ConfigurationUtils.save(this, getStorageFile(), fields);
+		YamlConfiguration config = new YamlConfiguration();
+		save(config);
+		ConfigurationUtils.safeSave(config, getStorageFile());
 	}
 
 	public void reload() {
