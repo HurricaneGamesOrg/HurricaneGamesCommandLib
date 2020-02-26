@@ -10,6 +10,8 @@ import org.bukkit.entity.Player;
 
 public class BukkitPlayerInfoProvider implements PlayerInfoProvider<BukkitPlayerInfo> {
 
+	public static final BukkitPlayerInfoProvider INSTANCE = new BukkitPlayerInfoProvider();
+
 	@Override
 	public BukkitPlayerInfo getByUUID(UUID uuid) {
 		return new BukkitPlayerInfo(Bukkit.getOfflinePlayer(uuid));
