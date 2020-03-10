@@ -165,7 +165,7 @@ public class CommandHelper<M extends CommandMessages, P extends PlayerInfo, PP e
 	 * @param validate validate run
 	 * @return predicate
 	 */
-	protected <T> Predicate<T> createPredicate(Consumer<T> validate) {
+	public <T> Predicate<T> createPredicate(Consumer<T> validate) {
 		return t -> {
 			try {
 				validate.accept(t);
