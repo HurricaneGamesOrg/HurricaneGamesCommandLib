@@ -6,7 +6,9 @@ import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -121,9 +123,9 @@ public class ConfigurationUtils {
 
 	}
 
-	public static class SimpleColorizedStringConfiguirationField<O> extends SimpleConfigurationField<O, String> {
+	public static class SimpleColorizedStringConfigurationField<O> extends SimpleConfigurationField<O, String> {
 
-		public SimpleColorizedStringConfiguirationField(Field field, String path) {
+		public SimpleColorizedStringConfigurationField(Field field, String path) {
 			super(field, path);
 		}
 
@@ -133,6 +135,23 @@ public class ConfigurationUtils {
 				return MiscBukkitUtils.colorize((String) object);
 			}
 			return "";
+		}
+
+	}
+
+	public static class SimpleColorizedStringListConfigurationField<O> extends SimpleConfigurationField<O, List<String>> {
+
+		public SimpleColorizedStringListConfigurationField(Field field, String path) {
+			super(field, path);
+		}
+
+		@SuppressWarnings("unchecked")
+		@Override
+		protected List<String> deserialize(Object object) {
+			if (object instanceof List) {
+				return MiscBukkitUtils.colorize((List<String>) object);
+			}
+			return new ArrayList<>();
 		}
 
 	}
