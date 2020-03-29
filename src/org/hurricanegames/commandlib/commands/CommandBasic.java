@@ -109,13 +109,15 @@ public abstract class CommandBasic<H extends CommandHelper<?, ?, ?>> implements 
 				constructorsInitFailCause.put(argumentConstructor, t);
 			}
 		}
-		throw new IllegalArgumentException(MessageFormat.format(
+		IllegalArgumentException exception = new IllegalArgumentException(new IllegalArgumentException(MessageFormat.format(
 			"No suitable constructor found for initializing command argument {0}. Tried constructors: {1}",
 			argumentClass,
 			constructorsInitFailCause.entrySet().stream()
 			.map(entry -> entry.getKey().toString() + " - " + entry.getValue().getMessage())
 			.collect(Collectors.joining(", "))
-		));
+		)));
+		constructorsInitFailCause.values().forEach(exception::addSuppressed);
+		throw exception;
 	}
 
 	@SuppressWarnings("unchecked")
