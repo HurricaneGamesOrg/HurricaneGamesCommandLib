@@ -1,5 +1,6 @@
 package org.hurricanegames.commandlib.utils;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -7,6 +8,15 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 public class ReflectionUtils {
+
+	public static <T extends Annotation> T getAnnotationByType(Class<T> type, Annotation[] annotations) {
+		for (Annotation annotation : annotations) {
+			if (type.equals(annotation.annotationType())) {
+				return type.cast(annotation);
+			}
+		}
+		return null;
+	}
 
 	public static <T extends AccessibleObject> T setAccessible(T object) {
 		object.setAccessible(true);

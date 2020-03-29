@@ -1,5 +1,6 @@
 package org.hurricanegames.commandlib.commands;
 
+import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
@@ -65,9 +66,16 @@ public abstract class CommandBasic<H extends CommandHelper<?, ?, ?>> implements 
 		}
 		argumentConstructorParameterArray[0] = command;
 		if (argumentConstructorParameterArray.length > 1) {
+			Annotation[][] parametersAnnotations = argumentConstructor.getParameterAnnotations();
+			if (argumentConstructorParameters.length - parametersAnnotations.length == 1) {
+				Annotation[][] offsetParametersAnnotations = new Annotation[argumentConstructorParameters.length][];
+				offsetParametersAnnotations[0] = new Annotation[0];
+				System.arraycopy(parametersAnnotations, 0, offsetParametersAnnotations, 1, parametersAnnotations.length);
+				parametersAnnotations = offsetParametersAnnotations;
+			}
 			for (int argumentParameterIndex = 1; argumentParameterIndex < argumentConstructorParameters.length; argumentParameterIndex++) {
 				Parameter argumentParameter = argumentConstructorParameters[argumentParameterIndex];
-				CommandArgumentDefinition argumentParameterDefinition = argumentParameter.getAnnotation(CommandArgumentDefinition.class);
+				CommandArgumentDefinition argumentParameterDefinition = ReflectionUtils.getAnnotationByType(CommandArgumentDefinition.class, parametersAnnotations[argumentParameterIndex]);
 				if (argumentParameterDefinition == null) {
 					throw new IllegalArgumentException(MessageFormat.format(
 						"Constuctor parameter {0} is missing {1} annotation",
