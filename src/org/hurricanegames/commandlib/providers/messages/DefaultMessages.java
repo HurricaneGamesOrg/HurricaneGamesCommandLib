@@ -62,7 +62,7 @@ public abstract class DefaultMessages extends SimpleConfiguration implements Com
 	protected String COMMAND_ARGS_INTEGER_ERROR = ChatColor.RED + "String {0} is not a number";
 
 	@ConfigurationFieldDefinition(fieldType = SimpleColorizedStringConfigurationField.class)
-	protected String COMMAND_ARGS_DOUBLE_ARGS = ChatColor.RED + "String {0} is not a double";
+	protected String COMMAND_ARGS_DOUBLE_ERROR = ChatColor.RED + "String {0} is not a double";
 
 	@ConfigurationFieldDefinition
 	protected String COMMAND_ARGS_BOOLEAN_TRUE = "true";
@@ -148,7 +148,7 @@ public abstract class DefaultMessages extends SimpleConfiguration implements Com
 
 	@Override
 	public String getArgDoubleErrorNotDoubleMessage(String string) {
-		return MessageFormat.format(COMMAND_ARGS_DOUBLE_ARGS, string);
+		return MessageFormat.format(COMMAND_ARGS_DOUBLE_ERROR, string);
 	}
 
 	@Override

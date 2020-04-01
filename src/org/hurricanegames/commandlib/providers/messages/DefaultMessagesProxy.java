@@ -71,6 +71,11 @@ public abstract class DefaultMessagesProxy extends SimpleConfiguration implement
 	}
 
 	@Override
+	public String getArgDoubleErrorNotDoubleMessage(String string) {
+		return parent.getArgDoubleErrorNotDoubleMessage(string);
+	}
+
+	@Override
 	public String getArgBooleanHelp() {
 		return parent.getArgBooleanHelp();
 	}
