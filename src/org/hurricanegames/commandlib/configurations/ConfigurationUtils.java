@@ -216,7 +216,10 @@ public class ConfigurationUtils {
 
 		@Override
 		protected String deserializeElement(O configurationObject, Object element) {
-			return MiscBukkitUtils.colorize((String) element);
+			if (element instanceof String) {
+				return MiscBukkitUtils.colorize((String) element);
+			}
+			return "";
 		}
 
 	}
