@@ -8,7 +8,11 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -99,12 +103,12 @@ public class ConfigurationUtils {
 		protected void load(O configurationObject, ConfigurationSection section) {
 			Object object = section.get(path);
 			if (object != null) {
-				ReflectionUtils.setField(field, configurationObject, deserialize(object));
+				ReflectionUtils.setField(field, configurationObject, deserialize(configurationObject, object));
 			}
 		}
 
 		@SuppressWarnings("unchecked")
-		protected T deserialize(Object object) {
+		protected T deserialize(O configurationObject, Object object) {
 			return (T) object;
 		}
 
@@ -113,12 +117,77 @@ public class ConfigurationUtils {
 		protected void save(O configurationObject, ConfigurationSection section) {
 			Object object = ReflectionUtils.getField(field, configurationObject);
 			if (object != null) {
-				section.set(path, serialize((T) object));
+				section.set(path, serialize(configurationObject, (T) object));
 			}
 		}
 
-		protected Object serialize(T object) {
+		protected Object serialize(O configurationObject, T object) {
 			return object;
+		}
+
+	}
+
+	public abstract static class SimpleCollectionConfigurationField<O, C extends Collection<T>, T> extends SimpleConfigurationField<O, C> {
+
+		public SimpleCollectionConfigurationField(Field field, String path) {
+			super(field, path);
+		}
+
+		@Override
+		protected C deserialize(O configurationObject, Object object) {
+			C collection = createCollection(configurationObject);
+			if (object instanceof Collection) {
+				for (Object element : (Collection<?>) object) {
+					collection.add(deserializeElement(configurationObject, element));
+				}
+			}
+			return collection;
+		}
+
+		protected abstract C createCollection(O configurationObject);
+
+		@SuppressWarnings("unchecked")
+		protected T deserializeElement(O configurationObject, Object element) {
+			return (T) element;
+		}
+
+		@Override
+		protected Object serialize(O configurationObject, C object) {
+			List<Object> list = new ArrayList<>();
+			for (T element : object) {
+				list.add(serializeElement(configurationObject, element));
+			}
+			return list;
+		}
+
+		protected Object serializeElement(O configurationObject, T element) {
+			return element;
+		}
+
+	}
+
+	public static class SimpleListConfigurationField<O, T> extends SimpleCollectionConfigurationField<O, List<T>, T> {
+
+		public SimpleListConfigurationField(Field field, String path) {
+			super(field, path);
+		}
+
+		@Override
+		protected List<T> createCollection(O configurationObject) {
+			return new ArrayList<>();
+		}
+
+	}
+
+	public static class SimpleSetConfigurationField<O, T> extends SimpleCollectionConfigurationField<O, Set<T>, T> {
+
+		public SimpleSetConfigurationField(Field field, String path) {
+			super(field, path);
+		}
+
+		@Override
+		protected Set<T> createCollection(O configurationObject) {
+			return Collections.newSetFromMap(new LinkedHashMap<>());
 		}
 
 	}
@@ -130,7 +199,7 @@ public class ConfigurationUtils {
 		}
 
 		@Override
-		protected String deserialize(Object object) {
+		protected String deserialize(O configurationObject, Object object) {
 			if (object instanceof String) {
 				return MiscBukkitUtils.colorize((String) object);
 			}
@@ -139,19 +208,15 @@ public class ConfigurationUtils {
 
 	}
 
-	public static class SimpleColorizedStringListConfigurationField<O> extends SimpleConfigurationField<O, List<String>> {
+	public static class SimpleColorizedStringListConfigurationField<O> extends SimpleListConfigurationField<O, String> {
 
 		public SimpleColorizedStringListConfigurationField(Field field, String path) {
 			super(field, path);
 		}
 
-		@SuppressWarnings("unchecked")
 		@Override
-		protected List<String> deserialize(Object object) {
-			if (object instanceof List) {
-				return MiscBukkitUtils.colorize((List<String>) object);
-			}
-			return new ArrayList<>();
+		protected String deserializeElement(O configurationObject, Object element) {
+			return MiscBukkitUtils.colorize((String) element);
 		}
 
 	}
