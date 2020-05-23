@@ -12,9 +12,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.MemoryConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.hurricanegames.commandlib.utils.MiscBukkitUtils;
 import org.hurricanegames.commandlib.utils.ReflectionUtils;
@@ -38,7 +40,7 @@ public class ConfigurationUtils {
 
 	/**
 	 * Safely saves the config to file<br>
-	 * Actualy saves config to temp file and them atomically replaces actual target
+	 * Actually saves config to temp file and them atomically replaces actual target
 	 * @param config config to save
 	 * @param file target file
 	 * @throws UncheckedIOException if saving or atomic move fails
@@ -220,6 +222,50 @@ public class ConfigurationUtils {
 				return MiscBukkitUtils.colorize((String) element);
 			}
 			return "";
+		}
+
+	}
+
+	public static class SimpleMapConfigurationField<O, M extends Map<String, T>, T> extends SimpleConfigurationField<O, M> {
+
+		public SimpleMapConfigurationField(Field field, String path) {
+			super(field, path);
+		}
+
+		@Override
+		protected M deserialize(O configurationObject, Object object) {
+			M map = createMap(configurationObject);
+			if (object instanceof ConfigurationSection) {
+				ConfigurationSection section = (ConfigurationSection) object;
+				for (String key : section.getKeys(false)) {
+					map.put(key, deserializeElement(configurationObject, key, section.get(key)));
+				}
+			}
+			return map;
+		}
+
+		@SuppressWarnings("unchecked")
+		protected M createMap(O configurationObject) {
+			return (M) new LinkedHashMap<String, T>();
+		}
+
+		@SuppressWarnings("unchecked")
+		protected T deserializeElement(O configurationObject, String key, Object element) {
+			return (T) element;
+		}
+
+		@Override
+		protected Object serialize(O configurationObject, M object) {
+			ConfigurationSection section = new MemoryConfiguration();
+			for (Map.Entry<String, T> entry : object.entrySet()) {
+				String key = entry.getKey();
+				section.set(key, serializeElement(configurationObject, key, entry.getValue()));
+			}
+			return section;
+		}
+
+		protected Object serializeElement(O configurationObject, String key, T element) {
+			return element;
 		}
 
 	}
