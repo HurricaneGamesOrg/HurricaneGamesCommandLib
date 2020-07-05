@@ -394,13 +394,14 @@ public class ConfigurationUtils {
 			this(configuration, field, path, createCollectionSerializer(field, elementSerializer));
 		}
 
-		public SimpleCollectionConfigurationField(O configuration, Field field, String path, CollectionTypeSerializer<Collection<T>, T> serializer) {
-			super(configuration, field, path, serializer);
+		@SuppressWarnings("unchecked")
+		public SimpleCollectionConfigurationField(O configuration, Field field, String path, CollectionTypeSerializer<? extends Collection<T>, T> serializer) {
+			super(configuration, field, path, (TypeSerializer<Collection<T>>) serializer);
 		}
 
 	}
 
-	public static class SimpleListConfigurationField<O, T> extends SimpleCollectionConfigurationField<O, List<T>> {
+	public static class SimpleListConfigurationField<O, T> extends SimpleCollectionConfigurationField<O, T> {
 
 		public SimpleListConfigurationField(O configuration, Field field, String path) {
 			super(configuration, field, path);
@@ -412,7 +413,7 @@ public class ConfigurationUtils {
 
 	}
 
-	public static class SimpleSetConfigurationField<O, T> extends SimpleCollectionConfigurationField<O, Set<T>> {
+	public static class SimpleSetConfigurationField<O, T> extends SimpleCollectionConfigurationField<O, T> {
 
 		public SimpleSetConfigurationField(O configuration, Field field, String path) {
 			super(configuration, field, path);
@@ -427,7 +428,7 @@ public class ConfigurationUtils {
 	public static class SimpleColorizedStringListConfigurationField<O> extends SimpleListConfigurationField<O, String> {
 
 		public SimpleColorizedStringListConfigurationField(O configuration, Field field, String path) {
-			super(configuration, field, path, new ColorizedStringTypeSerializer());
+			super(configuration, field, path, ColorizedStringTypeSerializer.INSTANCE);
 		}
 
 	}
