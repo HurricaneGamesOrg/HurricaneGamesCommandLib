@@ -13,7 +13,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.AbstractMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -74,7 +73,13 @@ public class ConfigurationUtils {
 	 */
 	@SafeVarargs
 	public static <T> void load(ConfigurationSection section, ConfigurationField<T>... fields) {
-		Arrays.stream(fields).forEach(field -> field.load(section));
+		for (ConfigurationField<T> field : fields) {
+			try {
+				field.load(section);
+			} catch (Throwable t) {
+				throw new RuntimeException("Unable to load field " + field.configurationField, t);
+			}
+		}
 	}
 
 	/**
@@ -85,7 +90,13 @@ public class ConfigurationUtils {
 	 */
 	@SafeVarargs
 	public static <T> void save(ConfigurationSection section, ConfigurationField<T>... fields) {
-		Arrays.stream(fields).forEach(field -> field.save(section));
+		for (ConfigurationField<T> field : fields) {
+			try {
+				field.save(section);
+			} catch (Throwable t) {
+				throw new RuntimeException("Unable to save field " + field.configurationField, t);
+			}
+		}
 	}
 
 	public static interface TypeSerializer<T> {
