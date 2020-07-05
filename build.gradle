@@ -1,5 +1,4 @@
 plugins {
-	id 'com.github.johnrengelman.shadow' version '5.0.0'
 	id 'java'
 }
 
@@ -10,11 +9,13 @@ defaultTasks 'build'
 group 'org.hurricanegames'
 version '1.1.2'
 
-File targetJarDirectory = new File("target")
 
-task setupFolders(type: DefaultTask) {doLast{
-	targetJarDirectory.mkdirs()
-}}
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.nio.file.Files
+
+
+Path projectDirectoryPath = projectDir.toPath().toAbsolutePath()
 
 
 sourceCompatibility = JavaVersion.VERSION_1_8
@@ -50,9 +51,9 @@ repositories {
 }
 
 dependencies {
-	compileOnly group: 'com.destroystokyo.paper', name: 'paper-api', version: '1.15.1-R0.1-SNAPSHOT'
+	implementation group: 'com.destroystokyo.paper', name: 'paper-api', version: '1.13-R0.1-SNAPSHOT'
 
-	testCompile 'org.junit.jupiter:junit-jupiter-api:5.2.0'
+	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.2.0'
 	testRuntime 'org.junit.jupiter:junit-jupiter-engine:5.2.0'
 }
 
@@ -66,18 +67,8 @@ test {
     useJUnitPlatform()
 }
 
-compileTestJava {
-	doFirst {
-		classpath += configurations.compileOnly
-	}
-}
 
-
-shadowJar {
-	doFirst {
-		new File(destinationDir, archiveName).delete()
-	}
-
+jar {
 	from sourceSets.main.java.srcDirs
 
 	archiveName = jar.archiveName
@@ -85,17 +76,16 @@ shadowJar {
 
 
 task copyFinalJarToTarget(type: DefaultTask) {doLast{
+	Path targetJarDirectory = projectDirectoryPath.resolve("target")
+	Files.createDirectories(targetJarDirectory)
 	java.nio.file.Files.copy(
-		shadowJar.archivePath.getAbsoluteFile().toPath(),
-		new File(targetJarDirectory, jar.baseName + '.jar').getAbsoluteFile().toPath(),
+		jar.archivePath.toPath().toAbsolutePath(),
+		targetJarDirectory.resolve(jar.baseName + '.jar'),
 		java.nio.file.StandardCopyOption.REPLACE_EXISTING
 	)
 }}
 
 
 compileJava.dependsOn(clean)
-compileJava.dependsOn(setupFolders)
 compileJava.finalizedBy(test)
-jar.enabled = false
-jar.finalizedBy(shadowJar)
-shadowJar.finalizedBy(copyFinalJarToTarget)
+jar.finalizedBy(copyFinalJarToTarget)

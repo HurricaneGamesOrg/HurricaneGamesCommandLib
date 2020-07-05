@@ -79,14 +79,6 @@ public class BukkitPlayerInfoProvider implements PlayerInfoProvider<BukkitPlayer
 				throw new UnsupportedOperationException("Unkown player");
 			}
 			@Override
-			public long getLastLogin() {
-				throw new UnsupportedOperationException("Unkown player");
-			}
-			@Override
-			public long getLastSeen() {
-				throw new UnsupportedOperationException("Unkown player");
-			}
-			@Override
 			public Location getBedSpawnLocation() {
 				throw new UnsupportedOperationException("Unkown player");
 			}
