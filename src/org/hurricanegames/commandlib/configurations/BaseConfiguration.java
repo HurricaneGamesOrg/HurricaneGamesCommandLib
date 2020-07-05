@@ -4,9 +4,11 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -49,12 +51,19 @@ public class BaseConfiguration {
 
 				if (definition.fieldType() != DefaultConfigurationField.class) {
 					try {
-						fieldsList.add(
-							definition.fieldType()
-							.getConstructor(Object.class, Field.class, String.class)
-							.newInstance(this, field, fieldName)
-						);
-					} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException | SecurityException e) {
+						boolean found = false;
+						for (Constructor<?> construstor : definition.fieldType().getConstructors()) {
+							Parameter[] parameters = construstor.getParameters();
+							if (parameters.length == 3 && parameters[1].getType().isAssignableFrom(Field.class) && parameters[2].getType().isAssignableFrom(String.class)) {
+								fieldsList.add((ConfigurationField) construstor.newInstance(this, field, fieldName));
+								found = true;
+								break;
+							}
+						}
+						if (!found) {
+							throw new IllegalArgumentException("Can't find suitable constructor");
+						}
+					} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | SecurityException e) {
 						throw new RuntimeException("Unable to instantiate custom configuration field", e);
 					}
 				} else {
