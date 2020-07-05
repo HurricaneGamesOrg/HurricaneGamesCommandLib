@@ -413,6 +413,14 @@ public class ConfigurationUtils {
 
 	}
 
+	public static class SimpleColorizedStringListConfigurationField<O> extends SimpleListConfigurationField<O, String> {
+
+		public SimpleColorizedStringListConfigurationField(O configuration, Field field, String path) {
+			super(configuration, field, path, new ColorizedStringTypeSerializer());
+		}
+
+	}
+
 	public static class SimpleMapConfigurationField<O, K, V> extends SimpleConfigurationField<O, Map<K, V>> {
 
 		protected static <K, V> Map.Entry<TypeSerializer<K>, TypeSerializer<V>> createMapKVSerializers(Field field) {
