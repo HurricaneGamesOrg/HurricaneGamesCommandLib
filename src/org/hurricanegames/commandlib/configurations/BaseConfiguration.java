@@ -6,7 +6,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
@@ -18,6 +17,7 @@ import org.hurricanegames.commandlib.configurations.BaseConfiguration.Configurat
 import org.hurricanegames.commandlib.configurations.ConfigurationUtils.BaseConfigurationField;
 import org.hurricanegames.commandlib.configurations.ConfigurationUtils.ConfigurationField;
 import org.hurricanegames.commandlib.configurations.ConfigurationUtils.SimpleConfigurationField;
+import org.hurricanegames.commandlib.utils.ReflectionUtils;
 
 public class BaseConfiguration {
 
@@ -55,7 +55,7 @@ public class BaseConfiguration {
 						for (Constructor<?> construstor : definition.fieldType().getConstructors()) {
 							Parameter[] parameters = construstor.getParameters();
 							if (parameters.length == 3 && parameters[1].getType().isAssignableFrom(Field.class) && parameters[2].getType().isAssignableFrom(String.class)) {
-								fieldsList.add((ConfigurationField) construstor.newInstance(this, field, fieldName));
+								fieldsList.add(ReflectionUtils.newInstance(ReflectionUtils.setAccessible(construstor), this, field, fieldName));
 								found = true;
 								break;
 							}
@@ -63,7 +63,7 @@ public class BaseConfiguration {
 						if (!found) {
 							throw new IllegalArgumentException("Can't find suitable constructor");
 						}
-					} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | SecurityException e) {
+					} catch (Exception e) {
 						throw new RuntimeException("Unable to instantiate custom configuration field", e);
 					}
 				} else {
