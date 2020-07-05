@@ -28,6 +28,11 @@ sourceSets {
 			srcDirs = ['resources']
 		}
 	}
+	test {
+		java {
+			srcDirs = ['tests']
+		}
+	}
 }
 
 repositories {
@@ -46,11 +51,25 @@ repositories {
 
 dependencies {
 	compileOnly group: 'com.destroystokyo.paper', name: 'paper-api', version: '1.15.1-R0.1-SNAPSHOT'
+
+	testCompile 'org.junit.jupiter:junit-jupiter-api:5.2.0'
+	testRuntime 'org.junit.jupiter:junit-jupiter-engine:5.2.0'
 }
 
 compileJava {
 	options.encoding = 'UTF-8'
 	options.incremental = false
+}
+
+
+test {
+    useJUnitPlatform()
+}
+
+compileTestJava {
+	doFirst {
+		classpath += configurations.compileOnly
+	}
 }
 
 
@@ -76,6 +95,7 @@ task copyFinalJarToTarget(type: DefaultTask) {doLast{
 
 compileJava.dependsOn(clean)
 compileJava.dependsOn(setupFolders)
+compileJava.finalizedBy(test)
 jar.enabled = false
 jar.finalizedBy(shadowJar)
 shadowJar.finalizedBy(copyFinalJarToTarget)
