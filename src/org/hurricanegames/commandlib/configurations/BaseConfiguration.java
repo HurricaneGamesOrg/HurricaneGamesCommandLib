@@ -12,20 +12,19 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.hurricanegames.commandlib.configurations.BaseConfiguration.ConfigurationFieldDefinition.DefaultConfigurationField;
 import org.hurricanegames.commandlib.configurations.ConfigurationUtils.BaseConfigurationField;
+import org.hurricanegames.commandlib.configurations.ConfigurationUtils.ConfigurationField;
 import org.hurricanegames.commandlib.configurations.ConfigurationUtils.SimpleConfigurationField;
-import org.hurricanegames.commandlib.utils.ReflectionUtils;
 
 public class BaseConfiguration {
 
 	@SuppressWarnings("rawtypes")
-	protected final BaseConfigurationField[] fields;
+	protected final ConfigurationField[] fields;
 
 	@SuppressWarnings("rawtypes")
 	public BaseConfiguration() {
-		List<BaseConfigurationField> fieldsList = new ArrayList<>();
+		List<ConfigurationField> fieldsList = new ArrayList<>();
 		Class<?> clazz = getClass();
 		do {
 			Arrays.stream(clazz.getDeclaredFields())
@@ -50,44 +49,35 @@ public class BaseConfiguration {
 
 				if (definition.fieldType() != DefaultConfigurationField.class) {
 					try {
-						fieldsList.add(definition.fieldType().getConstructor(Field.class, String.class).newInstance(field, fieldName));
+						fieldsList.add(
+							definition.fieldType()
+							.getConstructor(Object.class, Field.class, String.class)
+							.newInstance(this, field, fieldName)
+						);
 					} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException | SecurityException e) {
 						throw new RuntimeException("Unable to instantiate custom configuration field", e);
 					}
 				} else {
 					Class<?> fieldType = field.getType();
 					if (BaseConfiguration.class.isAssignableFrom(fieldType)) {
-						fieldsList.add(new BaseConfigurationField<BaseConfiguration>(field, fieldName) {
-							@Override
-							protected void load(BaseConfiguration configurationObject, ConfigurationSection section) {
-								ConfigurationSection objectSection = section.getConfigurationSection(path);
-								if (objectSection == null) {
-									objectSection = new YamlConfiguration();
-								}
-								ReflectionUtils.<BaseConfiguration>getField(field, configurationObject).load(objectSection);
-							}
-							@Override
-							protected void save(BaseConfiguration configurationObject, ConfigurationSection section) {
-								ReflectionUtils.<BaseConfiguration>getField(field, configurationObject).save(section.createSection(path));
-							}
-						});
+						fieldsList.add(new BaseConfigurationField<>(this, field, fieldName));
 					} else {
-						fieldsList.add(new SimpleConfigurationField(field, fieldName));
+						fieldsList.add(new SimpleConfigurationField<>(this, field, fieldName));
 					}
 				}
 			});
 		} while ((clazz = clazz.getSuperclass()) != null);
-		this.fields = fieldsList.toArray(new BaseConfigurationField[0]);
+		this.fields = fieldsList.toArray(new ConfigurationField[0]);
 	}
 
 	@SuppressWarnings("unchecked")
 	protected void load(ConfigurationSection section) {
-		ConfigurationUtils.load(this, section, fields);
+		ConfigurationUtils.load(section, fields);
 	}
 
 	@SuppressWarnings("unchecked")
 	protected void save(ConfigurationSection section) {
-		ConfigurationUtils.save(this, section, fields);
+		ConfigurationUtils.save(section, fields);
 	}
 
 	@Target(ElementType.FIELD)
@@ -97,27 +87,28 @@ public class BaseConfiguration {
 		String fieldName() default "";
 
 		@SuppressWarnings("rawtypes")
-		Class<? extends BaseConfigurationField> fieldType() default DefaultConfigurationField.class;
+		Class<? extends ConfigurationField> fieldType() default DefaultConfigurationField.class;
 
 		/**
 		 * A marker class for {@link ConfigurationFieldDefinition#fieldType()}<br>
 		 * This marker class means that creating configuration field from definition should be done by the configuration itself
 		 */
 		@SuppressWarnings("rawtypes")
-		public static final class DefaultConfigurationField extends BaseConfigurationField {
+		public static final class DefaultConfigurationField extends ConfigurationField {
 
-			public DefaultConfigurationField(Field field, String cPath) {
-				super(field, cPath);
+			@SuppressWarnings("unchecked")
+			public DefaultConfigurationField(BaseConfiguration configuration, Field field, String cPath) {
+				super(configuration, field, cPath);
 				throw new UnsupportedOperationException("Marker class");
 			}
 
 			@Override
-			protected void load(Object configurationObject, ConfigurationSection section) {
+			protected void load(ConfigurationSection section) {
 				throw new UnsupportedOperationException("Marker class");
 			}
 
 			@Override
-			protected void save(Object configurationObject, ConfigurationSection section) {
+			protected void save(ConfigurationSection section) {
 				throw new UnsupportedOperationException("Marker class");
 			}
 

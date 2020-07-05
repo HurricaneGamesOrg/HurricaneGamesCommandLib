@@ -4,16 +4,27 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.AbstractMap;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
+import java.util.Queue;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.function.Supplier;
 
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.MemoryConfiguration;
@@ -59,213 +70,397 @@ public class ConfigurationUtils {
 	 * Loads configuration
 	 * @param <T> configuration object instance type
 	 * @param section configuration section
-	 * @param configuraitonObject configuration object instance
 	 * @param fields configuration fields
 	 */
 	@SafeVarargs
-	public static <T> void load(T configuraitonObject, ConfigurationSection section, BaseConfigurationField<T>... fields) {
-		Arrays.stream(fields).forEach(field -> field.load(configuraitonObject, section));
+	public static <T> void load(ConfigurationSection section, ConfigurationField<T>... fields) {
+		Arrays.stream(fields).forEach(field -> field.load(section));
 	}
 
 	/**
 	 * Saves configuration
 	 * @param <T> configuration object instance type
-	 * @param configuraitonObject configuration object instance
 	 * @param section configuration section
 	 * @param fields configuration fields
 	 */
 	@SafeVarargs
-	public static <T> void save(T configuraitonObject, ConfigurationSection section, BaseConfigurationField<T>... fields) {
-		Arrays.stream(fields).forEach(field -> field.save(configuraitonObject, section));
+	public static <T> void save(ConfigurationSection section, ConfigurationField<T>... fields) {
+		Arrays.stream(fields).forEach(field -> field.save(section));
 	}
 
-	public abstract static class BaseConfigurationField<O> {
+	public static interface TypeSerializer<T> {
 
-		protected final Field field;
-		protected final String path;
+		public T deserialize(Object object);
 
-		public BaseConfigurationField(Field field, String cPath) {
-			this.field = field;
-			this.path = cPath;
-		}
-
-		protected abstract void load(O configurationObject, ConfigurationSection section);
-
-		protected abstract void save(O configurationObject, ConfigurationSection section);
+		public Object serialize(T type);
 
 	}
 
-	public static class SimpleConfigurationField<O, T> extends BaseConfigurationField<O> {
+	public static class IdentityTypeSerializer<T> implements TypeSerializer<T> {
 
-		public SimpleConfigurationField(Field field, String path) {
-			super(field, path);
-		}
+		protected final Class<?> clazz;
 
-		@Override
-		protected void load(O configurationObject, ConfigurationSection section) {
-			Object object = section.get(path);
-			if (object != null) {
-				ReflectionUtils.setField(field, configurationObject, deserialize(configurationObject, object));
-			}
-		}
-
-		@SuppressWarnings("unchecked")
-		protected T deserialize(O configurationObject, Object object) {
-			return (T) object;
+		public IdentityTypeSerializer(Class<?> clazz) {
+			this.clazz = clazz;
 		}
 
 		@SuppressWarnings("unchecked")
 		@Override
-		protected void save(O configurationObject, ConfigurationSection section) {
-			Object object = ReflectionUtils.getField(field, configurationObject);
-			if (object != null) {
-				section.set(path, serialize(configurationObject, (T) object));
+		public T deserialize(Object object) {
+			if (clazz.isInstance(object)) {
+				return (T) object;
 			}
+			return null;
 		}
 
-		protected Object serialize(O configurationObject, T object) {
-			return object;
+		@Override
+		public Object serialize(T type) {
+			return type;
 		}
 
 	}
 
-	public abstract static class SimpleCollectionConfigurationField<O, C extends Collection<T>, T> extends SimpleConfigurationField<O, C> {
+	public static class BaseConfigurationTypeSerializer implements TypeSerializer<BaseConfiguration> {
 
-		public SimpleCollectionConfigurationField(Field field, String path) {
-			super(field, path);
+		protected final Supplier<BaseConfiguration> configurationSupplier;
+
+		public BaseConfigurationTypeSerializer(Supplier<BaseConfiguration> configurationSupplier) {
+			this.configurationSupplier = configurationSupplier;
 		}
 
 		@Override
-		protected C deserialize(O configurationObject, Object object) {
-			C collection = createCollection(configurationObject);
+		public BaseConfiguration deserialize(Object object) {
+			if (object instanceof ConfigurationSection) {
+				BaseConfiguration configuration = configurationSupplier.get();
+				configuration.load((ConfigurationSection) object);
+				return configuration;
+			}
+			return null;
+		}
+
+		@Override
+		public Object serialize(BaseConfiguration type) {
+			ConfigurationSection section = new MemoryConfiguration();
+			type.save(section);
+			return section;
+		}
+
+	}
+
+	public static class ColorizedStringTypeSerializer implements TypeSerializer<String> {
+
+		public static final ColorizedStringTypeSerializer INSTANCE = new ColorizedStringTypeSerializer();
+
+		@Override
+		public String deserialize(Object object) {
+			if (object instanceof String) {
+				return MiscBukkitUtils.colorize((String) object);
+			}
+			return null;
+		}
+
+		@Override
+		public Object serialize(String type) {
+			return type;
+		}
+
+	}
+
+	public static class CollectionTypeSerializer<C extends Collection<T>, T> implements TypeSerializer<C> {
+
+		protected final Supplier<C> collectionSupplier;
+		protected final TypeSerializer<T> elementSerializer;
+
+		public CollectionTypeSerializer(Supplier<C> collectionSupplier, TypeSerializer<T> elementSerializer) {
+			this.collectionSupplier = collectionSupplier;
+			this.elementSerializer = elementSerializer;
+		}
+
+		@Override
+		public C deserialize(Object object) {
 			if (object instanceof Collection) {
+				C collection = collectionSupplier.get();
 				for (Object element : (Collection<?>) object) {
-					collection.add(deserializeElement(configurationObject, element));
+					T t = elementSerializer.deserialize(element);
+					if (t != null) {
+						collection.add(t);
+					}
 				}
+				return collection;
 			}
-			return collection;
-		}
-
-		protected abstract C createCollection(O configurationObject);
-
-		@SuppressWarnings("unchecked")
-		protected T deserializeElement(O configurationObject, Object element) {
-			return (T) element;
+			return null;
 		}
 
 		@Override
-		protected Object serialize(O configurationObject, C object) {
+		public Object serialize(C type) {
 			List<Object> list = new ArrayList<>();
-			for (T element : object) {
-				list.add(serializeElement(configurationObject, element));
+			for (T element : type) {
+				list.add(elementSerializer.serialize(element));
 			}
 			return list;
 		}
 
-		protected Object serializeElement(O configurationObject, T element) {
-			return element;
+	}
+
+	public static class ListTypeSerializer<T> extends CollectionTypeSerializer<List<T>, T> {
+
+		public ListTypeSerializer(TypeSerializer<T> elementSerializer) {
+			super(ArrayList::new, elementSerializer);
 		}
 
 	}
 
-	public static class SimpleListConfigurationField<O, T> extends SimpleCollectionConfigurationField<O, List<T>, T> {
+	public static class SetTypeSerializer<T> extends CollectionTypeSerializer<Set<T>, T> {
 
-		public SimpleListConfigurationField(Field field, String path) {
-			super(field, path);
-		}
-
-		@Override
-		protected List<T> createCollection(O configurationObject) {
-			return new ArrayList<>();
+		public SetTypeSerializer(TypeSerializer<T> elementSerializer) {
+			super(() -> Collections.newSetFromMap(new LinkedHashMap<>()), elementSerializer);
 		}
 
 	}
 
-	public static class SimpleSetConfigurationField<O, T> extends SimpleCollectionConfigurationField<O, Set<T>, T> {
+	public static class MapTypeSerializer<C extends Map<K, V>, K, V> implements TypeSerializer<C> {
 
-		public SimpleSetConfigurationField(Field field, String path) {
-			super(field, path);
+		protected final Supplier<C> mapSupplier;
+		protected final TypeSerializer<K> keySerializer;
+		protected final TypeSerializer<V> valueSerializer;
+
+		public MapTypeSerializer(Supplier<C> mapSupplier, TypeSerializer<K> keySerializer, TypeSerializer<V> valueSerializer) {
+			this.mapSupplier = mapSupplier;
+			this.keySerializer = keySerializer;
+			this.valueSerializer = valueSerializer;
 		}
 
 		@Override
-		protected Set<T> createCollection(O configurationObject) {
-			return Collections.newSetFromMap(new LinkedHashMap<>());
+		public C deserialize(Object object) {
+			if (object instanceof ConfigurationSection) {
+				ConfigurationSection section = (ConfigurationSection) object;
+				C map = mapSupplier.get();
+				for (String keyString : section.getKeys(false)) {
+					K key = keySerializer.deserialize(keyString);
+					V value = valueSerializer.deserialize(section.get(keyString));
+					if ((key != null) && (value != null)) {
+						map.put(key, value);
+					}
+				}
+				return map;
+			}
+			return null;
+		}
+
+		@Override
+		public Object serialize(C type) {
+			ConfigurationSection section = new MemoryConfiguration();
+			for (Map.Entry<K, V> entry : type.entrySet()) {
+				section.set((String) keySerializer.serialize(entry.getKey()), valueSerializer.serialize(entry.getValue()));
+			}
+			return section;
+		}
+
+	}
+
+	public abstract static class ConfigurationField<O> {
+
+		protected final O configuration;
+		protected final Field configurationField;
+		protected final String path;
+
+		public ConfigurationField(O configuration, Field field, String path) {
+			this.configurationField = field;
+			this.configuration = configuration;
+			this.path = path;
+		}
+
+		protected abstract void load(ConfigurationSection section);
+
+		protected abstract void save(ConfigurationSection section);
+
+	}
+
+	public static class SimpleConfigurationField<O, T> extends ConfigurationField<O> {
+
+		protected final TypeSerializer<T> elementSerializer;
+
+		public SimpleConfigurationField(O configuration, Field field, String path) {
+			this(configuration, field, path, new IdentityTypeSerializer<>(field.getType()));
+		}
+
+		public SimpleConfigurationField(O configuration, Field field, String path, TypeSerializer<T> elementSerializer) {
+			super(configuration, field, path);
+			this.elementSerializer = elementSerializer;
+		}
+
+		@Override
+		protected void load(ConfigurationSection section) {
+			Object object = section.get(path);
+			if (object != null) {
+				T t = elementSerializer.deserialize(object);
+				if (t != null) {
+					ReflectionUtils.setField(configurationField, configuration, t);
+				}
+			}
+		}
+
+		@SuppressWarnings("unchecked")
+		@Override
+		protected void save(ConfigurationSection section) {
+			Object object = ReflectionUtils.getField(configurationField, configuration);
+			if (object != null) {
+				section.set(path, elementSerializer.serialize((T) object));
+			}
 		}
 
 	}
 
 	public static class SimpleColorizedStringConfigurationField<O> extends SimpleConfigurationField<O, String> {
 
-		public SimpleColorizedStringConfigurationField(Field field, String path) {
-			super(field, path);
-		}
-
-		@Override
-		protected String deserialize(O configurationObject, Object object) {
-			if (object instanceof String) {
-				return MiscBukkitUtils.colorize((String) object);
-			}
-			return "";
+		public SimpleColorizedStringConfigurationField(O configuration, Field field, String path) {
+			super(configuration, field, path, ColorizedStringTypeSerializer.INSTANCE);
 		}
 
 	}
 
-	public static class SimpleColorizedStringListConfigurationField<O> extends SimpleListConfigurationField<O, String> {
+	public static class BaseConfigurationField<O> extends SimpleConfigurationField<O, BaseConfiguration> {
 
-		public SimpleColorizedStringListConfigurationField(Field field, String path) {
-			super(field, path);
+		protected static BaseConfigurationTypeSerializer createSerializer(Object object, Field field) {
+			return new BaseConfigurationTypeSerializer(() -> {
+				try {
+					return (BaseConfiguration) field.get(object);
+				} catch (IllegalArgumentException | IllegalAccessException e) {
+					throw new RuntimeException(e);
+				}
+			});
 		}
 
-		@Override
-		protected String deserializeElement(O configurationObject, Object element) {
-			if (element instanceof String) {
-				return MiscBukkitUtils.colorize((String) element);
-			}
-			return "";
+		public BaseConfigurationField(O configuration, Field field, String path) {
+			super(configuration, field, path, createSerializer(configuration, field));
 		}
 
 	}
 
-	public static class SimpleMapConfigurationField<O, M extends Map<String, T>, T> extends SimpleConfigurationField<O, M> {
+	public static class SimpleCollectionConfigurationField<O, T> extends SimpleConfigurationField<O, Collection<T>> {
 
-		public SimpleMapConfigurationField(Field field, String path) {
-			super(field, path);
-		}
-
-		@Override
-		protected M deserialize(O configurationObject, Object object) {
-			M map = createMap(configurationObject);
-			if (object instanceof ConfigurationSection) {
-				ConfigurationSection section = (ConfigurationSection) object;
-				for (String key : section.getKeys(false)) {
-					map.put(key, deserializeElement(configurationObject, key, section.get(key)));
+		@SuppressWarnings("unchecked")
+		protected static <T> TypeSerializer<T> createCollectionElementSerializer(Field field) {
+			Type type = field.getGenericType();
+			if (type instanceof ParameterizedType) {
+				Type[] actualTypeArguments = ((ParameterizedType) type).getActualTypeArguments();
+				if (actualTypeArguments.length == 1) {
+					Type actualTypeArgument = actualTypeArguments[0];
+					if (actualTypeArgument instanceof Class) {
+						return new IdentityTypeSerializer<>((Class<T>) actualTypeArgument);
+					}
 				}
 			}
-			return map;
+			System.err.println("Unable to get element type from collection generic type " + type.getClass().getName() + "(" + type + ")");
+			return new IdentityTypeSerializer<>(Object.class);
 		}
 
 		@SuppressWarnings("unchecked")
-		protected M createMap(O configurationObject) {
-			return (M) new LinkedHashMap<String, T>();
-		}
-
-		@SuppressWarnings("unchecked")
-		protected T deserializeElement(O configurationObject, String key, Object element) {
-			return (T) element;
-		}
-
-		@Override
-		protected Object serialize(O configurationObject, M object) {
-			ConfigurationSection section = new MemoryConfiguration();
-			for (Map.Entry<String, T> entry : object.entrySet()) {
-				String key = entry.getKey();
-				section.set(key, serializeElement(configurationObject, key, entry.getValue()));
+		protected static <T> CollectionTypeSerializer<Collection<T>, T> createCollectionSerializer(Field field, TypeSerializer<T> elementSerializer) {
+			Class<?> fieldType = field.getType();
+			if (!fieldType.isInterface() && !Modifier.isAbstract(fieldType.getModifiers())) {
+				return new CollectionTypeSerializer<>(() -> {
+					try {
+						return (Collection<T>) fieldType.getConstructor().newInstance();
+					} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException | SecurityException e) {
+						throw new RuntimeException("Unable to create collection instance", e);
+					}
+				}, elementSerializer);
+			} else if (Queue.class.isAssignableFrom(fieldType)) {
+				return new CollectionTypeSerializer<>(ArrayDeque::new, elementSerializer);
+			} else if (Set.class.isAssignableFrom(fieldType)) {
+				return new CollectionTypeSerializer<>(HashSet::new, elementSerializer);
+			} else {
+				return new CollectionTypeSerializer<>(ArrayList::new, elementSerializer);
 			}
-			return section;
 		}
 
-		protected Object serializeElement(O configurationObject, String key, T element) {
-			return element;
+		public SimpleCollectionConfigurationField(O configuration, Field field, String path) {
+			this(configuration, field, path, createCollectionElementSerializer(field));
+		}
+
+		public SimpleCollectionConfigurationField(O configuration, Field field, String path, TypeSerializer<T> elementSerializer) {
+			this(configuration, field, path, createCollectionSerializer(field, elementSerializer));
+		}
+
+		public SimpleCollectionConfigurationField(O configuration, Field field, String path, CollectionTypeSerializer<Collection<T>, T> serializer) {
+			super(configuration, field, path, serializer);
+		}
+
+	}
+
+	public static class SimpleListConfigurationField<O, T> extends SimpleCollectionConfigurationField<O, List<T>> {
+
+		public SimpleListConfigurationField(O configuration, Field field, String path) {
+			super(configuration, field, path);
+		}
+
+		public SimpleListConfigurationField(O configuration, Field field, String path, TypeSerializer<T> elementSerializer) {
+			super(configuration, field, path, new ListTypeSerializer<>(elementSerializer));
+		}
+
+	}
+
+	public static class SimpleSetConfigurationField<O, T> extends SimpleCollectionConfigurationField<O, Set<T>> {
+
+		public SimpleSetConfigurationField(O configuration, Field field, String path) {
+			super(configuration, field, path);
+		}
+
+		public SimpleSetConfigurationField(O configuration, Field field, String path, TypeSerializer<T> elementSerializer) {
+			super(configuration, field, path, new SetTypeSerializer<>(elementSerializer));
+		}
+
+	}
+
+	public static class SimpleMapConfigurationField<O, K, V> extends SimpleConfigurationField<O, Map<K, V>> {
+
+		protected static <K, V> Map.Entry<TypeSerializer<K>, TypeSerializer<V>> createMapKVSerializers(Field field) {
+			Type type = field.getGenericType();
+			if (type instanceof ParameterizedType) {
+				Type[] actualTypeArguments = ((ParameterizedType) type).getActualTypeArguments();
+				if (actualTypeArguments.length == 2) {
+					Type keyType = actualTypeArguments[0];
+					Type valueType = actualTypeArguments[1];
+					if ((keyType instanceof Class) && (valueType instanceof Class)) {
+						return new AbstractMap.SimpleImmutableEntry<>(
+							new IdentityTypeSerializer<>((Class<?>) keyType), new IdentityTypeSerializer<>((Class<?>) valueType)
+						);
+					}
+				}
+			}
+			System.err.println("Unable to get element type from map generic type " + type.getClass().getName() + "(" + type + ")");
+			return new AbstractMap.SimpleImmutableEntry<>(new IdentityTypeSerializer<>(Object.class), new IdentityTypeSerializer<>(Object.class));
+		}
+
+		@SuppressWarnings("unchecked")
+		protected static <K, V> MapTypeSerializer<Map<K, V>, K, V> createMapSerializer(Field field, Map.Entry<TypeSerializer<K>, TypeSerializer<V>> serializers) {
+			Class<?> fieldType = field.getType();
+			if (!fieldType.isInterface() && !Modifier.isAbstract(fieldType.getModifiers())) {
+				return new MapTypeSerializer<>(() -> {
+					try {
+						return (Map<K, V>) fieldType.getConstructor().newInstance();
+					} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException | SecurityException e) {
+						throw new RuntimeException("Unable to create collection instance", e);
+					}
+				}, serializers.getKey(), serializers.getValue());
+			} else if (NavigableMap.class.isAssignableFrom(fieldType)) {
+				return new MapTypeSerializer<>(TreeMap::new, serializers.getKey(), serializers.getValue());
+			} else {
+				return new MapTypeSerializer<>(LinkedHashMap::new, serializers.getKey(), serializers.getValue());
+			}
+		}
+
+		public SimpleMapConfigurationField(O configuration, Field field, String path) {
+			super(configuration, field, path, createMapSerializer(field, createMapKVSerializers(field)));
+		}
+
+		public SimpleMapConfigurationField(O configuration, Field field, String path, TypeSerializer<K> keySerializer, TypeSerializer<V> valueSerializer) {
+			super(configuration, field, path, createMapSerializer(field, new AbstractMap.SimpleImmutableEntry<>(keySerializer, valueSerializer)));
+		}
+
+		public SimpleMapConfigurationField(O configuration, Field field, String path, MapTypeSerializer<Map<K,V>, K, V> mapSerializer) {
+			super(configuration, field, path, mapSerializer);
 		}
 
 	}

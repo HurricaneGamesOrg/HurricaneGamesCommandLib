@@ -67,7 +67,7 @@ public abstract class CommandBasic<H extends CommandHelper<?, ?, ?>> implements 
 		argumentConstructorParameterArray[0] = command;
 		if (argumentConstructorParameterArray.length > 1) {
 			Annotation[][] parametersAnnotations = argumentConstructor.getParameterAnnotations();
-			if (argumentConstructorParameters.length - parametersAnnotations.length == 1) {
+			if ((argumentConstructorParameters.length - parametersAnnotations.length) == 1) {
 				Annotation[][] offsetParametersAnnotations = new Annotation[argumentConstructorParameters.length][];
 				offsetParametersAnnotations[0] = new Annotation[0];
 				System.arraycopy(parametersAnnotations, 0, offsetParametersAnnotations, 1, parametersAnnotations.length);
