@@ -131,18 +131,62 @@ public class ConfigurationUtils {
 
 	}
 
-	public static class BaseConfigurationTypeSerializer implements TypeSerializer<BaseConfiguration> {
+	public static class IntegerTypeSerializer implements TypeSerializer<Integer> {
 
-		protected final Supplier<BaseConfiguration> configurationSupplier;
+		public static final IntegerTypeSerializer INSTANCE = new IntegerTypeSerializer();
 
-		public BaseConfigurationTypeSerializer(Supplier<BaseConfiguration> configurationSupplier) {
+		@Override
+		public Integer deserialize(Object object) {
+			if (object instanceof Integer) {
+				return (Integer) object;
+			} else if (object instanceof Number) {
+				return Integer.valueOf(((Number) object).intValue());
+			} else {
+				return null;
+			}
+		}
+
+		@Override
+		public Object serialize(Integer type) {
+			return type;
+		}
+
+	}
+
+	public static class LongTypeSerializer implements TypeSerializer<Long> {
+
+		public static final LongTypeSerializer INSTANCE = new LongTypeSerializer();
+
+		@Override
+		public Long deserialize(Object object) {
+			if (object instanceof Long) {
+				return (Long) object;
+			} else if (object instanceof Number) {
+				return Long.valueOf(((Number) object).longValue());
+			} else {
+				return null;
+			}
+		}
+
+		@Override
+		public Object serialize(Long type) {
+			return type;
+		}
+
+	}
+
+	public static class BaseConfigurationTypeSerializer<T extends BaseConfiguration> implements TypeSerializer<T> {
+
+		protected final Supplier<T> configurationSupplier;
+
+		public BaseConfigurationTypeSerializer(Supplier<T> configurationSupplier) {
 			this.configurationSupplier = configurationSupplier;
 		}
 
 		@Override
-		public BaseConfiguration deserialize(Object object) {
+		public T deserialize(Object object) {
 			if (object instanceof ConfigurationSection) {
-				BaseConfiguration configuration = configurationSupplier.get();
+				T configuration = configurationSupplier.get();
 				configuration.load((ConfigurationSection) object);
 				return configuration;
 			}
@@ -150,7 +194,7 @@ public class ConfigurationUtils {
 		}
 
 		@Override
-		public Object serialize(BaseConfiguration type) {
+		public Object serialize(T type) {
 			ConfigurationSection section = new MemoryConfiguration();
 			type.save(section);
 			return section;
@@ -322,6 +366,22 @@ public class ConfigurationUtils {
 
 	}
 
+	public static class IntegerConfigurationField<O> extends SimpleConfigurationField<O, Integer> {
+
+		public IntegerConfigurationField(O configuration, Field field, String path) {
+			super(configuration, field, path, IntegerTypeSerializer.INSTANCE);
+		}
+
+	}
+
+	public static class LongConfigurationField<O> extends SimpleConfigurationField<O, Long> {
+
+		public LongConfigurationField(O configuration, Field field, String path) {
+			super(configuration, field, path, LongTypeSerializer.INSTANCE);
+		}
+
+	}
+
 	public static class SimpleColorizedStringConfigurationField<O> extends SimpleConfigurationField<O, String> {
 
 		public SimpleColorizedStringConfigurationField(O configuration, Field field, String path) {
@@ -330,12 +390,13 @@ public class ConfigurationUtils {
 
 	}
 
-	public static class BaseConfigurationField<O> extends SimpleConfigurationField<O, BaseConfiguration> {
+	public static class BaseConfigurationField<O, T extends BaseConfiguration> extends SimpleConfigurationField<O, T> {
 
-		protected static BaseConfigurationTypeSerializer createSerializer(Object object, Field field) {
-			return new BaseConfigurationTypeSerializer(() -> {
+		@SuppressWarnings("unchecked")
+		protected static <T extends BaseConfiguration> BaseConfigurationTypeSerializer<T> createSerializer(Object object, Field field) {
+			return new BaseConfigurationTypeSerializer<>(() -> {
 				try {
-					return (BaseConfiguration) field.get(object);
+					return (T) field.get(object);
 				} catch (IllegalArgumentException | IllegalAccessException e) {
 					throw new RuntimeException(e);
 				}

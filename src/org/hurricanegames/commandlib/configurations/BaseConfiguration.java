@@ -54,7 +54,7 @@ public class BaseConfiguration {
 						boolean found = false;
 						for (Constructor<?> construstor : definition.fieldType().getConstructors()) {
 							Parameter[] parameters = construstor.getParameters();
-							if (parameters.length == 3 && parameters[1].getType().isAssignableFrom(Field.class) && parameters[2].getType().isAssignableFrom(String.class)) {
+							if ((parameters.length == 3) && parameters[1].getType().isAssignableFrom(Field.class) && parameters[2].getType().isAssignableFrom(String.class)) {
 								fieldsList.add(ReflectionUtils.newInstance(ReflectionUtils.setAccessible(construstor), this, field, fieldName));
 								found = true;
 								break;
