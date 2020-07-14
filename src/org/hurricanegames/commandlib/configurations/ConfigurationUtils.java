@@ -236,6 +236,9 @@ public class ConfigurationUtils {
 			if (object instanceof Collection) {
 				C collection = collectionSupplier.get();
 				for (Object element : (Collection<?>) object) {
+					if (element instanceof Map) {
+						element = MiscBukkitUtils.createSection((Map<?, ?>) element);
+					}
 					T t = elementSerializer.deserialize(element);
 					if (t != null) {
 						collection.add(t);
