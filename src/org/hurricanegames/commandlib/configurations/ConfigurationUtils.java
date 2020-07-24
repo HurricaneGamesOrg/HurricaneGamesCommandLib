@@ -279,13 +279,45 @@ public class ConfigurationUtils {
 	public static class MapTypeSerializer<C extends Map<K, V>, K, V> implements TypeSerializer<C> {
 
 		protected final Supplier<C> mapSupplier;
-		protected final TypeSerializer<K> keySerializer;
-		protected final TypeSerializer<V> valueSerializer;
+		protected final MapKVTypeSerializer<K, V> entrySerializer;
 
 		public MapTypeSerializer(Supplier<C> mapSupplier, TypeSerializer<K> keySerializer, TypeSerializer<V> valueSerializer) {
 			this.mapSupplier = mapSupplier;
-			this.keySerializer = keySerializer;
-			this.valueSerializer = valueSerializer;
+			this.entrySerializer = new MapKVTypeSerializer<K,V>() {
+				@Override
+				protected Map.Entry<K, V> deserializeKV(String key, Object value) {
+					return new AbstractMap.SimpleEntry<>(keySerializer.deserialize(key), valueSerializer.deserialize(value));
+				}
+				@Override
+				protected Map.Entry<String, Object> serializeKV(K key, V value) {
+					return new AbstractMap.SimpleEntry<>(keySerializer.serialize(key).toString(), valueSerializer.serialize(value));
+				}
+			};
+		}
+
+		public MapTypeSerializer(Supplier<C> mapSupplier, MapKVTypeSerializer<K, V> entrySerializer) {
+			this.mapSupplier = mapSupplier;
+			this.entrySerializer = entrySerializer;
+		}
+
+		public abstract static class MapKVTypeSerializer<K, V> implements TypeSerializer<Map.Entry<K, V>> {
+
+			@SuppressWarnings("unchecked")
+			@Override
+			public Map.Entry<K, V> deserialize(Object object) {
+				Map.Entry<String, Object> entry = (Map.Entry<String, Object>) object;
+				return deserializeKV(entry.getKey(), entry.getValue());
+			}
+
+			@Override
+			public Object serialize(Map.Entry<K, V> type) {
+				return serializeKV(type.getKey(), type.getValue());
+			}
+
+			protected abstract Map.Entry<K, V> deserializeKV(String key, Object value);
+
+			protected abstract Map.Entry<String, Object> serializeKV(K key, V value);
+
 		}
 
 		@Override
@@ -294,10 +326,9 @@ public class ConfigurationUtils {
 				ConfigurationSection section = (ConfigurationSection) object;
 				C map = mapSupplier.get();
 				for (String keyString : section.getKeys(false)) {
-					K key = keySerializer.deserialize(keyString);
-					V value = valueSerializer.deserialize(section.get(keyString));
-					if ((key != null) && (value != null)) {
-						map.put(key, value);
+					Map.Entry<K, V> entry = entrySerializer.deserialize(new AbstractMap.SimpleEntry<>(keyString, section.get(keyString)));
+					if (entry != null) {
+						map.put(entry.getKey(), entry.getValue());
 					}
 				}
 				return map;
@@ -305,11 +336,13 @@ public class ConfigurationUtils {
 			return null;
 		}
 
+		@SuppressWarnings("unchecked")
 		@Override
 		public Object serialize(C type) {
 			ConfigurationSection section = new MemoryConfiguration();
 			for (Map.Entry<K, V> entry : type.entrySet()) {
-				section.set((String) keySerializer.serialize(entry.getKey()), valueSerializer.serialize(entry.getValue()));
+				Map.Entry<String, Object> serialized = (Map.Entry<String, Object>) entrySerializer.serialize(entry);
+				section.set(serialized.getKey(), serialized.getValue());
 			}
 			return section;
 		}
