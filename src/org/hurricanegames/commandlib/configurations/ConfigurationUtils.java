@@ -28,6 +28,7 @@ import java.util.function.Supplier;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.MemoryConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.hurricanegames.commandlib.configurations.ConfigurationUtils.MapTypeSerializer.MapKVTypeSerializer;
 import org.hurricanegames.commandlib.utils.MiscBukkitUtils;
 import org.hurricanegames.commandlib.utils.ReflectionUtils;
 
@@ -282,17 +283,7 @@ public class ConfigurationUtils {
 		protected final MapKVTypeSerializer<K, V> entrySerializer;
 
 		public MapTypeSerializer(Supplier<C> mapSupplier, TypeSerializer<K> keySerializer, TypeSerializer<V> valueSerializer) {
-			this.mapSupplier = mapSupplier;
-			this.entrySerializer = new MapKVTypeSerializer<K,V>() {
-				@Override
-				protected Map.Entry<K, V> deserializeKV(String key, Object value) {
-					return new AbstractMap.SimpleEntry<>(keySerializer.deserialize(key), valueSerializer.deserialize(value));
-				}
-				@Override
-				protected Map.Entry<String, Object> serializeKV(K key, V value) {
-					return new AbstractMap.SimpleEntry<>(keySerializer.serialize(key).toString(), valueSerializer.serialize(value));
-				}
-			};
+			this(mapSupplier, MapKVTypeSerializer.create(keySerializer, valueSerializer));
 		}
 
 		public MapTypeSerializer(Supplier<C> mapSupplier, MapKVTypeSerializer<K, V> entrySerializer) {
@@ -301,6 +292,19 @@ public class ConfigurationUtils {
 		}
 
 		public abstract static class MapKVTypeSerializer<K, V> implements TypeSerializer<Map.Entry<K, V>> {
+
+			public static <K, V> MapKVTypeSerializer<K, V> create(TypeSerializer<K> keySerializer, TypeSerializer<V> valueSerializer) {
+				return new MapKVTypeSerializer<K,V>() {
+					@Override
+					protected Map.Entry<K, V> deserializeKV(String key, Object value) {
+						return new AbstractMap.SimpleEntry<>(keySerializer.deserialize(key), valueSerializer.deserialize(value));
+					}
+					@Override
+					protected Map.Entry<String, Object> serializeKV(K key, V value) {
+						return new AbstractMap.SimpleEntry<>(keySerializer.serialize(key).toString(), valueSerializer.serialize(value));
+					}
+				};
+			}
 
 			@SuppressWarnings("unchecked")
 			@Override
@@ -532,7 +536,7 @@ public class ConfigurationUtils {
 
 	public static class SimpleMapConfigurationField<O, K, V> extends SimpleConfigurationField<O, Map<K, V>> {
 
-		protected static <K, V> Map.Entry<TypeSerializer<K>, TypeSerializer<V>> createMapKVSerializers(Field field) {
+		protected static <K, V> MapKVTypeSerializer<K, V> createMapKVSerializer(Field field) {
 			Type type = field.getGenericType();
 			if (type instanceof ParameterizedType) {
 				Type[] actualTypeArguments = ((ParameterizedType) type).getActualTypeArguments();
@@ -540,18 +544,16 @@ public class ConfigurationUtils {
 					Type keyType = actualTypeArguments[0];
 					Type valueType = actualTypeArguments[1];
 					if ((keyType instanceof Class) && (valueType instanceof Class)) {
-						return new AbstractMap.SimpleImmutableEntry<>(
-							new IdentityTypeSerializer<>((Class<?>) keyType), new IdentityTypeSerializer<>((Class<?>) valueType)
-						);
+						return MapKVTypeSerializer.create(new IdentityTypeSerializer<>((Class<?>) keyType), new IdentityTypeSerializer<>((Class<?>) valueType));
 					}
 				}
 			}
 			System.err.println("Unable to get element type from map generic type " + type.getClass().getName() + "(" + type + ")");
-			return new AbstractMap.SimpleImmutableEntry<>(new IdentityTypeSerializer<>(Object.class), new IdentityTypeSerializer<>(Object.class));
+			return MapKVTypeSerializer.create(new IdentityTypeSerializer<>(Object.class), new IdentityTypeSerializer<>(Object.class));
 		}
 
 		@SuppressWarnings("unchecked")
-		protected static <K, V> MapTypeSerializer<Map<K, V>, K, V> createMapSerializer(Field field, Map.Entry<TypeSerializer<K>, TypeSerializer<V>> serializers) {
+		protected static <K, V> MapTypeSerializer<Map<K, V>, K, V> createMapSerializer(Field field, MapKVTypeSerializer<K, V> entrySerializer) {
 			Class<?> fieldType = field.getType();
 			if (!fieldType.isInterface() && !Modifier.isAbstract(fieldType.getModifiers())) {
 				return new MapTypeSerializer<>(() -> {
@@ -560,20 +562,24 @@ public class ConfigurationUtils {
 					} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException | SecurityException e) {
 						throw new RuntimeException("Unable to create collection instance", e);
 					}
-				}, serializers.getKey(), serializers.getValue());
+				}, entrySerializer);
 			} else if (NavigableMap.class.isAssignableFrom(fieldType)) {
-				return new MapTypeSerializer<>(TreeMap::new, serializers.getKey(), serializers.getValue());
+				return new MapTypeSerializer<>(TreeMap::new, entrySerializer);
 			} else {
-				return new MapTypeSerializer<>(LinkedHashMap::new, serializers.getKey(), serializers.getValue());
+				return new MapTypeSerializer<>(LinkedHashMap::new, entrySerializer);
 			}
 		}
 
 		public SimpleMapConfigurationField(O configuration, Field field, String path) {
-			super(configuration, field, path, createMapSerializer(field, createMapKVSerializers(field)));
+			super(configuration, field, path, createMapSerializer(field, createMapKVSerializer(field)));
 		}
 
 		public SimpleMapConfigurationField(O configuration, Field field, String path, TypeSerializer<K> keySerializer, TypeSerializer<V> valueSerializer) {
-			super(configuration, field, path, createMapSerializer(field, new AbstractMap.SimpleImmutableEntry<>(keySerializer, valueSerializer)));
+			super(configuration, field, path, createMapSerializer(field, MapKVTypeSerializer.create(keySerializer, valueSerializer)));
+		}
+
+		public SimpleMapConfigurationField(O configuration, Field field, String path, MapKVTypeSerializer<K, V> entrySerializer) {
+			super(configuration, field, path, createMapSerializer(field, entrySerializer));
 		}
 
 		public SimpleMapConfigurationField(O configuration, Field field, String path, MapTypeSerializer<Map<K,V>, K, V> mapSerializer) {
