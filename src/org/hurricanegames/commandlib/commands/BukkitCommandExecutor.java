@@ -35,7 +35,7 @@ public class BukkitCommandExecutor implements CommandExecutor, TabCompleter {
 			}
 			command.handleCommand(new CommandContext(command.getHelper().getMessages(), sender, label, splitEscaped(args)));
 		} catch (CommandResponseException e) {
-			sender.sendMessage(e.getMessage());
+			sender.sendMessage(e.getMessage().split("\n"));
 		}
 		return true;
 	}
