@@ -33,7 +33,7 @@ public class UnknownOfflinePlayer implements OfflinePlayer {
 
 	@Override
 	public String getName() {
-		return uuid.toString();
+		return name;
 	}
 
 	@Override
